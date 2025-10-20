@@ -200,20 +200,22 @@ function showDiwaliOverlay(success){
   const playerNameText = document.getElementById('playerNameText');
   const actionButton = document.getElementById('actionButton');
   const wishImg = document.getElementById('diwaliWishImg');
+  const diwaliMessage = document.getElementById('diwaliMessage');
 
   if(success){
     // Successful hit → show image and share
-    playerNameText.textContent = playerName;
+    diwaliMessage.style.display = 'block';
     wishImg.style.display = 'block';
+    playerNameText.textContent = playerName;
 
     actionButton.textContent = 'Share with Friends';
     actionButton.onclick = () => {
-      const message = `🌟 Happy Diwali! ${playerName} just lit the sky! 🎆\nPlay the rocket game: ${window.location.href}`;
+      const message = `🌟 ${playerName} just lit the sky! 🎆\nPlay the rocket game: ${window.location.href}`;
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
       
       if(navigator.share){ 
         navigator.share({
-          title: 'Happy Diwali!',
+          title: 'Rocket Game',
           text: message,
           url: window.location.href
         });
@@ -227,7 +229,8 @@ function showDiwaliOverlay(success){
       }
     };
   } else {
-    // Miss → no image, no happy Diwali text
+    // Miss → no image, only retry message
+    diwaliMessage.textContent = "Oops! You missed the target.";
     wishImg.style.display = 'none';
     playerNameText.textContent = "You missed! Try again.";
     actionButton.textContent = 'Fire Again';

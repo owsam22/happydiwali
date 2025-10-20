@@ -199,11 +199,13 @@ function showDiwaliOverlay(success){
   const overlay = document.getElementById('diwaliOverlay');
   const playerNameText = document.getElementById('playerNameText');
   const actionButton = document.getElementById('actionButton');
+  const wishImg = document.getElementById('diwaliWishImg');
 
   if(success){
+    // Successful hit → show image and share
     playerNameText.textContent = playerName;
+    wishImg.style.display = 'block';
 
-    // Change button to share
     actionButton.textContent = 'Share with Friends';
     actionButton.onclick = () => {
       const message = `🌟 Happy Diwali! ${playerName} just lit the sky! 🎆\nPlay the rocket game: ${window.location.href}`;
@@ -225,7 +227,9 @@ function showDiwaliOverlay(success){
       }
     };
   } else {
-    playerNameText.textContent = '';
+    // Miss → no image, no happy Diwali text
+    wishImg.style.display = 'none';
+    playerNameText.textContent = "You missed! Try again.";
     actionButton.textContent = 'Fire Again';
     actionButton.onclick = resetGame;
   }

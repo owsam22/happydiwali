@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Diwali Rocket Game</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/MotionPathPlugin.min.js"></script>
+<style>
+html, body {
+  margin:0; padding:0; height:100%; width:100%;
+  background: radial-gradient(circle at top, #1b0b00, #0a0a1f); 
+  font-family:sans-serif; overflow:hidden;
+}
+#gameContainer {
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:flex-start; height:100%; width:100%; position:relative;
+  padding-top:10px;
+}
+canvas {
+  border-radius:1.5rem; 
+  background: linear-gradient(180deg, #1f2a36 0%, #171f28 100%);
+  box-shadow: 0 0 40px 10px gold, 0 0 80px 20px rgba(255,215,0,0.5);
+}
+#launchButton{
+  margin-top:20px; 
+  background: linear-gradient(135deg,#FFD700,#FFA500);
+  color:#0a0a1f; font-weight:bold; padding:1rem 2rem;
+  font-size:1.2rem; border:none; border-radius:1.5rem; cursor:pointer;
+  box-shadow:0 5px 25px rgba(255,215,0,0.6);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+#launchButton:hover{transform:scale(1.05); box-shadow:0 8px 35px rgba(255,215,0,0.8);}
+#launchButton:active{transform:scale(0.98);box-shadow:0 4px 15px rgba(255,215,0,0.5);}
+#nameModal{
+  position:fixed;inset:0;background:rgba(0,0,0,0.9);
+  display:flex;justify-content:center;align-items:center;z-index:10;
+}
+#nameModalContent{
+  background:#111;padding:2rem;border-radius:2rem;border:4px solid #FFD700;
+  text-align:center;width:90%;max-width:400px;
+}
+#startGameButton{
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  color: #0a0a1f; font-weight: bold; padding: 0.8rem 2rem;
+  font-size: 1.2rem; border-radius: 1.5rem; border: none; cursor: pointer;
+  box-shadow: 0 5px 20px rgba(255,215,0,0.6);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+#startGameButton:hover{transform: scale(1.05); box-shadow: 0 8px 30px rgba(255,215,0,0.8);}
+#diwaliOverlay{
+  position:absolute;inset:0;background:rgba(0,0,0,0.9);
+  display:flex;justify-content:center;align-items:center;
+  flex-direction:column;color:#FFD700;font-weight:bold;font-size:2rem;
+  opacity:0;pointer-events:none;transition:opacity 0.5s;z-index:9;text-align:center;
+}
+#diwaliOverlay.show{opacity:1;pointer-events:auto;}
+#diwaliOverlay button{
+  margin-top:2rem;padding:1rem 2rem;background:#FFD700;border:none;
+  border-radius:1rem;color:#0a0a1f;font-weight:bold;cursor:pointer;
+  box-shadow:0 5px 20px rgba(255,215,0,0.6);
+}
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="gameCanvas"></canvas>
+  <button id="launchButton" style="display:none;">LAUNCH ROCKET</button>
+</div>
+
+<div id="nameModal">
+  <div id="nameModalContent">
+    <h2 style="color:#FFD700;font-size:1.5rem;margin-bottom:1rem;">Diwali Rocket!</h2>
+    <input type="text" id="playerNameInput" placeholder="Your Name" style="padding:0.5rem 1rem;border-radius:1rem;border:2px solid #FFD700;width:80%;text-align:center;margin-bottom:1rem;">
+    <br>
+    <button id="startGameButton">Start</button>
+  </div>
+</div>
+
+<div id="diwaliOverlay">
+  <h1 id="diwaliMessage">Festival of Lights!</h1>
+  <p id="diwaliSubMessage"></p>
+  <button onclick="resetGame()">Fire Again</button>
+</div>
+
+<script>
+const canvas=document.getElementById('gameCanvas');
+const ctx=canvas.getContext('2d');
+const launchButton=document.getElementById('launchButton');
+
+let width,height,cx,cy,radius;
+let dialAngle=0,dialDir=1,dialSpeed=0.04;
+let rocket=null,particles=[],lastTime=0,playerName='';
+let isLaunching=false,isGameActive=false;
+
+// Green target zone in radians
+const GREEN_START = -0.4;
+const GREEN_END = 0.4;
+
+// Fireworks array for pre-launch effect
+let fireworks=[];
+for(let i=0;i<5;i++){
+  fireworks.push({
+    x:Math.random()*window.innerWidth,
+    y:rand(50,150),
+    age:rand(0,1),
+    burst:false
+  });
+}
+
+function rand(min,max){return min+Math.random()*(max-min);}
+
+function resizeCanvas(){
+  width=canvas.width=window.innerWidth;
+  height=canvas.height=window.innerHeight-120;
+  cx=width/2; cy=height*0.75;
+  radius=Math.min(width,height)*0.2;
+}
+window.addEventListener('resize',resizeCanvas);
+resizeCanvas();
+
+function drawBackground(){
+  ctx.fillStyle='black';
+  ctx.fillRect(0,0,width,height);
+  // small stars
+  for(let i=0;i<30;i++){ctx.fillStyle='white'; ctx.fillRect(rand(0,width),rand(0,height/2),1.5,1.5);}
+  
+  // pre-launch fireworks
+  fireworks.forEach(f=>{
+    f.age+=0.02;
+    if(!f.burst && f.age>1){
+      f.burst=true;
+      for(let i=0;i<30;i++){
+        particles.push({
+          x:f.x, y:f.y,
+          vx:Math.cos(rand(0,Math.PI*2))*rand(1,4),
+          vy:Math.sin(rand(0,Math.PI*2))*rand(1,4),
+          gravity:0.02, size:rand(1,3),
+          alpha:1, decay:0.02,
+          r:rand(200,255), g:rand(150,255), b:0
+        });
+      }
+    }
+    if(f.age>2){f.age=0; f.burst=false; f.x=rand(50,width-50); f.y=rand(50,150);}
+  });
+
+  // festival text responsive
+  ctx.font="bold "+(width<500?24:48)+"px sans-serif";
+  const grad=ctx.createLinearGradient(0,0,width,0);
+  grad.addColorStop(0,"#FFD700"); grad.addColorStop(0.5,"#FF8C00"); grad.addColorStop(1,"#FFD700");
+  ctx.fillStyle=grad;
+  ctx.textAlign="center";
+  ctx.fillText("Festival of Lights!",cx,70);
+}
+
+function drawDial(){
+  ctx.save(); ctx.translate(cx,cy);
+  ctx.beginPath(); ctx.arc(0,0,radius,0,2*Math.PI); ctx.lineWidth=18; ctx.strokeStyle='#444'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,radius,GREEN_START,GREEN_END); ctx.strokeStyle='yellow'; ctx.lineWidth=12; ctx.shadowBlur=15; ctx.shadowColor='yellow'; ctx.stroke(); ctx.shadowBlur=0;
+  ctx.beginPath(); ctx.arc(0,0,12,0,2*Math.PI); ctx.fillStyle='#C0392B'; ctx.fill(); ctx.lineWidth=5; ctx.strokeStyle='yellow'; ctx.stroke();
+  ctx.rotate(dialAngle); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(radius*0.9,0); ctx.strokeStyle='white'; ctx.lineWidth=4; ctx.stroke();
+  ctx.restore();
+}
+
+function drawRocket(r){
+  if(!r) return;
+  ctx.save(); ctx.translate(r.x,r.y);
+  ctx.fillStyle='silver'; ctx.fillRect(-5,-20,10,20);
+  ctx.beginPath(); ctx.moveTo(0,-30); ctx.lineTo(-5,-20); ctx.lineTo(5,-20); ctx.closePath(); ctx.fillStyle='yellow'; ctx.fill();
+  ctx.fillStyle='red'; ctx.beginPath(); ctx.moveTo(-5,0); ctx.lineTo(-10,10); ctx.lineTo(-5,10); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='green'; ctx.beginPath(); ctx.moveTo(5,0); ctx.lineTo(10,10); ctx.lineTo(5,10); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawParticles(dt){
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=p.gravity*dt; p.alpha-=p.decay*dt;
+    ctx.fillStyle=`rgba(${p.r},${p.g},${p.b},${p.alpha})`;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+    if(p.alpha<=0||p.y>height+20) particles.splice(i,1);
+  }
+}
+
+function launchRocket(){
+  if(isLaunching) return;
+  isLaunching=true;
+  const perfect = dialAngle >= GREEN_START && dialAngle <= GREEN_END;
+  rocket={x:cx,y:cy,finished:false};
+  const targetY = perfect ? height*0.1 : height*0.5;
+  gsap.to(rocket,{y:targetY,duration:perfect?2:1.2,ease:"power2.out",onComplete:()=>{
+    // explosion at top
+    for(let i=0;i<100;i++){
+      particles.push({
+        x:rocket.x, y:rocket.y,
+        vx:Math.cos(rand(0,Math.PI*2))*rand(1,5),
+        vy:Math.sin(rand(0,Math.PI*2))*rand(1,5),
+        gravity:0.02, size:rand(1,3), alpha:1, decay:0.02,
+        r:rand(200,255), g:rand(100,255), b:rand(0,100)
+      });
+    }
+    rocket.finished=true;
+    showDiwaliOverlay(perfect);
+  }});
+}
+
+function showDiwaliOverlay(success){
+  const overlay = document.getElementById('diwaliOverlay');
+  const messageEl = document.getElementById('diwaliMessage');
+  const subMessageEl = document.getElementById('diwaliSubMessage');
+
+  if(success){
+    messageEl.textContent = `You lit the sky!`; 
+    subMessageEl.textContent = `HAPPY DIWALI, ${playerName}!`;
+  } else {
+    messageEl.textContent = 'Try Again!';
+    subMessageEl.textContent = 'Launch again to hit the target.';
+  }
+
+  overlay.classList.add('show');
+}
+
+
+function resetGame(){
+  document.getElementById('diwaliOverlay').classList.remove('show');
+  isLaunching=false; rocket=null; particles=[]; dialAngle=0; isGameActive=true;
+}
+
+function animate(time){
+  if(!isGameActive) return;
+  let dt=(time-lastTime)/16; lastTime=time;
+  ctx.clearRect(0,0,width,height);
+  drawBackground(); drawDial(); drawRocket(rocket); drawParticles(dt);
+  if(!isLaunching){dialAngle+=dialSpeed*dialDir; if(dialAngle>Math.PI/2||dialAngle<-Math.PI/2)dialDir*=-1;}
+  requestAnimationFrame(animate);
+}
+
+document.getElementById('startGameButton').addEventListener('click',()=>{
+  const nameInput=document.getElementById('playerNameInput').value.trim();
+  if(nameInput){
+    playerName=nameInput; 
+    document.getElementById('nameModal').style.display='none';
+    launchButton.style.display='block';
+    isGameActive=true; lastTime=performance.now(); animate(lastTime);
+  }
+});
+launchButton.addEventListener('click',launchRocket);
+</script>
+</body>
+</html>
